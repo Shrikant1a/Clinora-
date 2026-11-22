@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: clinic-automation-web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres_secure_pwd@db:5432/clinic_automation?schema=public
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - ADMIN_EMAIL=admin@clinicautomation.com
+      - ADMIN_PASSWORD=clinicAdmin2026!secure
+      - JWT_SECRET=production-secret-min-32-characters-clinic-2026
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    container_name: clinic-automation-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_secure_pwd
+      POSTGRES_DB: clinic_automation
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:

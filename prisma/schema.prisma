@@ -1,0 +1,125 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Clinic {
+  id                    String            @id @default(cuid())
+  name                  String
+  slug                  String            @unique
+  phone                 String
+  email                 String
+  address               String?
+  emergencyPhone        String?           @default("+91 98765 43210")
+  setupPrice            Int               @default(25000)
+  currency              String            @default("INR")
+  timezone              String            @default("Asia/Kolkata")
+  reminderLeadMinutes   Int               @default(60)
+  reportHour            Int               @default(21) // 9:00 PM
+  languages             String            @default("English, Hindi, Hinglish")
+  n8nWebhookUrl         String?
+  whatsappPhoneNumberId String?
+  doctors               Doctor[]
+  appointments          Appointment[]
+  conversations         Conversation[]
+  dailyReports          DailyReportLog[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+
+model Doctor {
+  id           String        @id @default(cuid())
+  clinicId     String
+  clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  name         String
+  specialty    String
+  calendarId   String
+  workingDays  String        @default("Mon,Tue,Wed,Thu,Fri,Sat")
+  startTime    String        @default("10:00")
+  endTime      String        @default("17:30")
+  slotMinutes  Int           @default(30)
+  isActive     Boolean       @default(true)
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([clinicId])
+}
+
+model Appointment {
+  id              String    @id // e.g., APT-20261122-0001
+  clinicId        String
+  clinic          Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  doctorId        String
+  doctor          Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patientName     String
+  phone           String
+  problem         String
+  date            String    // YYYY-MM-DD
+  startTime       String    // HH:mm (24hr)
+  endTime         String    // HH:mm (24hr)
+  status          String    @default("Booked") // Booked | Cancelled | Completed | No-show
+  calendarEventId String?
+  reminderSent    Boolean   @default(false)
+  reminderSentAt  DateTime?
+  source          String    @default("WhatsApp") // WhatsApp | Phone | Web | Manual
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([clinicId, date])
+  @@index([doctorId, date])
+  @@index([phone])
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  clinicId      String
+  clinic        Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  phone         String
+  state         String    @default("NEW") // NEW | COLLECTING_DETAILS | SLOTS_SENT | CONFIRMED | CANCELLED | ESCALATED
+  collectedJson String    @default("{}") // { name, problem, date, doctorId, chosenSlot }
+  isEscalated   Boolean   @default(false)
+  lastMessageAt DateTime  @default(now())
+  transcript    String    @default("[]") // JSON string of message objects [{sender, text, time}]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([clinicId, phone])
+  @@index([clinicId, state])
+}
+
+model Lead {
+  id           String   @id @default(cuid())
+  clinicName   String
+  contactPerson String
+  phone        String
+  email        String
+  doctorsCount Int      @default(1)
+  dailyVolume  Int      @default(50)
+  message      String?
+  status       String   @default("NEW") // NEW | CONTACTED | CONVERTED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DailyReportLog {
+  id             String    @id @default(cuid())
+  clinicId       String
+  clinic         Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  date           String    // YYYY-MM-DD
+  bookedCount    Int       @default(0)
+  cancelledCount Int       @default(0)
+  upcomingCount  Int       @default(0)
+  emailSent      Boolean   @default(false)
+  emailSentAt    DateTime?
+  detailsJson    String    @default("{}")
+  createdAt      DateTime  @default(now())
+
+  @@unique([clinicId, date])
+  @@index([clinicId])
+}
